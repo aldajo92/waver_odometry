@@ -12,6 +12,7 @@ find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(std_srvs REQUIRED) # Add this line
 
 # Add the executable
 add_executable(odometry_node src/odometry_node.cpp)
@@ -23,6 +24,7 @@ ament_target_dependencies(odometry_node
   geometry_msgs
   tf2
   tf2_geometry_msgs
+  std_srvs
 )
 
 # Install the executable

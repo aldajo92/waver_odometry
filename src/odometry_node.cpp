@@ -6,14 +6,13 @@
 #include <cmath>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2_ros/transform_broadcaster.h>
+#include <std_srvs/srv/empty.hpp> // Include for the reset service
 
 using namespace std::chrono_literals;
 
-class OdometryFromVelocity : public rclcpp::Node
-{
+class OdometryFromVelocity : public rclcpp::Node {
 public:
-    OdometryFromVelocity() : Node("waver_odometry_node"), x_(0.0), y_(0.0), theta_(0.0), tf_broadcaster_(std::make_shared<tf2_ros::TransformBroadcaster>(this))
-    {
+    OdometryFromVelocity() : Node("waver_odometry_node"), x_(0.0), y_(0.0), theta_(0.0), tf_broadcaster_(std::make_shared<tf2_ros::TransformBroadcaster>(this)) {
         declare_parameter("odom_frame", "odom");
         declare_parameter("base_frame", "base_footprint");
         declare_parameter("odom_topic", "/odom");
@@ -29,12 +28,16 @@ public:
             vel_topic_, 10,
             std::bind(&OdometryFromVelocity::velocityCallback, this, std::placeholders::_1));
 
+        // Create a service to reset odometry
+        reset_service_ = create_service<std_srvs::srv::Empty>(
+            "reset_odometry",
+            std::bind(&OdometryFromVelocity::resetOdometryCallback, this, std::placeholders::_1, std::placeholders::_2));
+
         last_time_ = now();
     }
 
 private:
-    void velocityCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
-    {
+    void velocityCallback(const geometry_msgs::msg::Twist::SharedPtr msg) {
         auto current_time = now();
         double dt = (current_time - last_time_).seconds();
         last_time_ = current_time;
@@ -85,6 +88,14 @@ private:
         tf_broadcaster_->sendTransform(transform);
     }
 
+    void resetOdometryCallback(const std_srvs::srv::Empty::Request::SharedPtr /*request*/,
+                               std_srvs::srv::Empty::Response::SharedPtr /*response*/) {
+        x_ = 0.0;
+        y_ = 0.0;
+        theta_ = 0.0;
+        RCLCPP_INFO(this->get_logger(), "Odometry has been reset to zero.");
+    }
+
     double x_, y_, theta_;
     std::string odom_frame_, base_frame_, odom_topic_, vel_topic_;
     rclcpp::Time last_time_;
@@ -92,10 +103,10 @@ private:
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr vel_sub_;
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+    rclcpp::Service<std_srvs::srv::Empty>::SharedPtr reset_service_; // Service to reset odometry
 };
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<OdometryFromVelocity>());
     rclcpp::shutdown();
